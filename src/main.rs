@@ -5,6 +5,7 @@ extern crate wraited_struct;
 
 
 use std::fs::File;
+use std::fmt::Display;
 use std::os::unix::io::{AsRawFd, RawFd};
 use argparse::{ArgumentParser, Store, StoreConst, Print};
 
@@ -27,6 +28,39 @@ struct RawInputEvent {
 enum Format {
     TabSplit,
     Eval
+}
+
+
+
+macro_rules! puts_kvs_in_eval {
+    ( $name:expr => $value:expr $(, $tname:expr => $tvalue:expr)* ) => {
+        {
+            print!("{}={}", $name, $value);
+            $( print!(" {}={}", $tname, $tvalue); )*
+            println!("");
+        }
+    }
+}
+
+
+macro_rules! puts_kvs_in_tab_split {
+    ( $name:expr => $value:expr $(, $tname:expr => $tvalue:expr)* ) => {
+        {
+            print!("{}", $value);
+            $( print!("\t{}", $tvalue); )*
+            println!("");
+        }
+    }
+}
+
+
+macro_rules! puts_kvs {
+    ( $format:expr $(,$name:expr => $value:expr)* ) => {
+        match $format {
+            Format::TabSplit => puts_kvs_in_eval!($($name => $value),*),
+            Format::Eval => puts_kvs_in_tab_split!($($name => $value),*)
+        }
+    }
 }
 
 
@@ -56,11 +90,6 @@ fn main() {
     }
 
     while let Ok(event) = wraited_struct::read::<RawInputEvent, File>(&mut file) {
-        match format {
-            Eval =>
-                println!("time={}.{} kind={} code={} value={}", event.time.seconds, event.time.microseconds, event.kind, event.code, event.value),
-            TabSplit =>
-                println!("{}.{}\t{}\t{}\t{}", event.time.seconds, event.time.microseconds, event.kind, event.code, event.value)
-        }
+        puts_kvs!(format, "time" => event.time.seconds, "kind" => event.kind, "code" => event.code, "value" => event.value);
     }
 }
