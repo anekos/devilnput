@@ -57,8 +57,8 @@ macro_rules! puts_kvs_in_tab_split {
 macro_rules! puts_kvs {
     ( $format:expr $(,$name:expr => $value:expr)* ) => {
         match $format {
-            Format::TabSplit => puts_kvs_in_eval!($($name => $value),*),
-            Format::Eval => puts_kvs_in_tab_split!($($name => $value),*)
+            Format::Eval => puts_kvs_in_eval!($($name => $value),*),
+            Format::TabSplit => puts_kvs_in_tab_split!($($name => $value),*)
         }
     }
 }
