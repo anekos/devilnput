@@ -9,7 +9,7 @@ mod name_table;
 use std::fs::File;
 use std::collections::HashMap;
 use std::os::unix::io::{AsRawFd, RawFd};
-use argparse::{ArgumentParser, Store, StoreConst, Print};
+use argparse::{ArgumentParser, Store, StoreConst, StoreTrue, Print};
 use uinput_sys::*;
 
 use name_table::*;
@@ -75,6 +75,7 @@ fn main() {
 
     let mut file = String::new();
     let mut format = Format::Eval;
+    let mut named = false;
 
     {
         let mut ap = ArgumentParser::new();
@@ -82,6 +83,8 @@ fn main() {
         ap.refer(&mut format)
             .add_option(&["-e", "--eval"], StoreConst(Eval), "for eval (default)")
             .add_option(&["-t", "--tab-split"], StoreConst(TabSplit), "Tab split");
+        ap.refer(&mut named)
+            .add_option(&["-n", "--named"], StoreTrue, "Show named values");
         ap.refer(&mut file).add_argument("Device file", Store, "/dev/input/*");
         ap.add_option(&["-v", "--version"], Print(env!("CARGO_PKG_VERSION").to_string()), "Show version");
         ap.parse_args_or_exit();
@@ -99,8 +102,8 @@ fn main() {
     }
 
     while let Ok(event) = wraited_struct::read::<RawInputEvent, File>(&mut file) {
-        let code_name = name(event.code, &num2code);
-        let kind_name = name(event.kind, &num2ev);
+        let code_name = name(named, event.code, &num2code);
+        let kind_name = name(named, event.kind, &num2ev);
         match event.kind as i32 {
             EV_SYN | EV_MSC => (),
             EV_KEY =>
@@ -111,7 +114,7 @@ fn main() {
                     "code" => code_name,
                     "value" => event.value),
             EV_REL => {
-                let rel_name = name(event.code, &num2rel);
+                let rel_name = name(named, event.code, &num2rel);
                 puts_kvs!(
                     format,
                     "time" => event.time.seconds,
@@ -131,6 +134,10 @@ fn main() {
 }
 
 
-fn name(num: u16, table: &HashMap<u16, String>) -> String {
-    table.get(&num).unwrap_or(&format!("{}", num)).to_owned()
+fn name(enabled: bool, num: u16, table: &HashMap<u16, String>) -> String {
+    if enabled {
+        table.get(&num).unwrap_or(&format!("{}", num)).to_owned()
+    } else {
+        format!("{}", num)
+    }
 }
