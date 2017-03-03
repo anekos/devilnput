@@ -2,12 +2,17 @@
 extern crate argparse;
 extern crate ioctl;
 extern crate wraited_struct;
+extern crate uinput_sys;
 
+mod name_table;
 
 use std::fs::File;
-use std::fmt::Display;
+use std::collections::HashMap;
 use std::os::unix::io::{AsRawFd, RawFd};
 use argparse::{ArgumentParser, Store, StoreConst, Print};
+use uinput_sys::*;
+
+use name_table::*;
 
 
 #[repr(C)]
@@ -82,6 +87,10 @@ fn main() {
         ap.parse_args_or_exit();
     }
 
+    let num2code = generate_code_name_table();
+    let num2ev = generate_ev_name_table();
+    let num2rel = generate_rel_name_table();
+
     let mut file = File::open(file).expect("Could not open");
     let fd: RawFd = file.as_raw_fd();
 
@@ -90,6 +99,38 @@ fn main() {
     }
 
     while let Ok(event) = wraited_struct::read::<RawInputEvent, File>(&mut file) {
-        puts_kvs!(format, "time" => event.time.seconds, "kind" => event.kind, "code" => event.code, "value" => event.value);
+        let code_name = name(event.code, &num2code);
+        let kind_name = name(event.kind, &num2ev);
+        match event.kind as i32 {
+            EV_SYN | EV_MSC => (),
+            EV_KEY =>
+                puts_kvs!(
+                    format,
+                    "time" => event.time.seconds,
+                    "kind" => kind_name,
+                    "code" => code_name,
+                    "value" => event.value),
+            EV_REL => {
+                let rel_name = name(event.code, &num2rel);
+                puts_kvs!(
+                    format,
+                    "time" => event.time.seconds,
+                    "kind" => kind_name,
+                    "code" => rel_name,
+                    "value" => event.value);
+            }
+            _ =>
+                puts_kvs!(
+                    format,
+                    "time" => event.time.seconds,
+                    "kind" => kind_name,
+                    "code" => code_name,
+                    "value" => event.value),
+        }
     }
+}
+
+
+fn name(num: u16, table: &HashMap<u16, String>) -> String {
+    table.get(&num).unwrap_or(&format!("{}", num)).to_owned()
 }
