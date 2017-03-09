@@ -13,11 +13,14 @@ end
 
 class Env
   def initialize()
-    @num2ev = {}
-    @num2key = {}
-    @num2btn = {}
-    @num2code = {}
-    @num2rel = {}
+    @tables = [
+      @num2ev = {},
+      @num2key = {},
+      @num2btn = {},
+      @num2code = {},
+      @num2rel = {},
+      @num2abs = {}
+    ]
   end
 
   def define(name, num_expr)
@@ -29,6 +32,7 @@ class Env
     insert_table('EV', @num2ev, name, num)
     insert_table('BTN', @num2btn, name, num)
     insert_table('REL', @num2rel, name, num)
+    insert_table('ABS', @num2abs, name, num)
   end
 
   def insert_table (prefix, table, name, num)
@@ -45,6 +49,10 @@ class Env
     print_table('ev', @num2ev)
     puts
     print_table('rel', @num2rel)
+    puts
+    print_table('abs', @num2abs)
+    puts
+    print_max_width
   end
 
   def print_table (name, table)
@@ -53,6 +61,11 @@ class Env
     table.each {|num, key| puts(%Q[    table.insert(#{num}, "#{key}".to_owned());])}
     puts('    table')
     puts('}')
+  end
+
+  def print_max_width
+    max = @tables.map {|table| table.max_by {|it| it.last.size } .last.size } .max
+    puts("pub static MAX_NAME_SIZE: usize = #{max};")
   end
 end
 

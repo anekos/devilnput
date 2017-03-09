@@ -31,28 +31,28 @@ struct RawInputEvent {
 
 #[derive(Copy, Clone)]
 enum Format {
-    TabSplit,
+    List,
     Eval
 }
 
 
 
 macro_rules! puts_kvs_in_eval {
-    ( $name:expr => $value:expr $(, $tname:expr => $tvalue:expr)* ) => {
+    ( $delimiter:expr, $name:expr => $value:expr $(, $tname:expr => $tvalue:expr)* ) => {
         {
             print!("{}={}", $name, $value);
-            $( print!(" {}={}", $tname, $tvalue); )*
+            $( print!("{}{}={}", $delimiter, $tname, $tvalue); )*
             println!("");
         }
     }
 }
 
 
-macro_rules! puts_kvs_in_tab_split {
-    ( $name:expr => $value:expr $(, $tname:expr => $tvalue:expr)* ) => {
+macro_rules! puts_kvs_in_list {
+    ( $delimiter:expr, $name:expr => $value:expr $(, $tname:expr => $tvalue:expr)* ) => {
         {
             print!("{}", $value);
-            $( print!("\t{}", $tvalue); )*
+            $( print!("{}{}", $delimiter, $tvalue); )*
             println!("");
         }
     }
@@ -60,10 +60,10 @@ macro_rules! puts_kvs_in_tab_split {
 
 
 macro_rules! puts_kvs {
-    ( $format:expr $(,$name:expr => $value:expr)* ) => {
+    ( $delimiter:expr, $format:expr $(,$name:expr => $value:expr)* ) => {
         match $format {
-            Format::Eval => puts_kvs_in_eval!($($name => $value),*),
-            Format::TabSplit => puts_kvs_in_tab_split!($($name => $value),*)
+            Format::Eval => puts_kvs_in_eval!($delimiter, $($name => $value),*),
+            Format::List => puts_kvs_in_list!($delimiter, $($name => $value),*)
         }
     }
 }
@@ -76,15 +76,17 @@ fn main() {
     let mut file = String::new();
     let mut format = Format::Eval;
     let mut named = false;
+    let mut delimiter = " ".to_owned();
 
     {
         let mut ap = ArgumentParser::new();
         ap.set_description("panty and stocking");
         ap.refer(&mut format)
-            .add_option(&["-e", "--eval"], StoreConst(Eval), "for eval (default)")
-            .add_option(&["-t", "--tab-split"], StoreConst(TabSplit), "Tab split");
+            .add_option(&["-e", "--eval"], StoreConst(Eval), "For eval (default)")
+            .add_option(&["-l", "--list"], StoreConst(List), "List");
         ap.refer(&mut named)
             .add_option(&["-n", "--named"], StoreTrue, "Show named values");
+        ap.refer(&mut delimiter).add_option(&["-d", "--delimiter"], Store, "Item delimiter");
         ap.refer(&mut file).add_argument("Device file", Store, "/dev/input/*");
         ap.add_option(&["-v", "--version"], Print(env!("CARGO_PKG_VERSION").to_string()), "Show version");
         ap.parse_args_or_exit();
@@ -93,6 +95,7 @@ fn main() {
     let num2code = generate_code_name_table();
     let num2ev = generate_ev_name_table();
     let num2rel = generate_rel_name_table();
+    let num2abs = generate_abs_name_table();
 
     let mut file = File::open(file).expect("Could not open");
     let fd: RawFd = file.as_raw_fd();
@@ -102,42 +105,66 @@ fn main() {
     }
 
     while let Ok(event) = wraited_struct::read::<RawInputEvent, File>(&mut file) {
-        let code_name = name(named, event.code, &num2code);
-        let kind_name = name(named, event.kind, &num2ev);
+        let kind_name = name(named, false, event.kind, &num2ev);
         match event.kind as i32 {
             EV_SYN | EV_MSC => (),
-            EV_KEY =>
+            EV_KEY => {
+                let code_name = name(named, true, event.code, &num2code);
                 puts_kvs!(
+                    delimiter,
                     format,
                     "time" => event.time.seconds,
                     "kind" => kind_name,
                     "code" => code_name,
-                    "value" => event.value),
+                    "value" => event.value);
+            }
             EV_REL => {
-                let rel_name = name(named, event.code, &num2rel);
+                let rel_name = name(named, true, event.code, &num2rel);
                 puts_kvs!(
+                    delimiter,
                     format,
                     "time" => event.time.seconds,
                     "kind" => kind_name,
                     "code" => rel_name,
                     "value" => event.value);
             }
-            _ =>
+            EV_ABS => {
+                let abs_name = name(named, true, event.code, &num2abs);
                 puts_kvs!(
+                    delimiter,
                     format,
                     "time" => event.time.seconds,
                     "kind" => kind_name,
-                    "code" => code_name,
+                    "code" => abs_name,
+                    "value" => event.value);
+            }
+            _ =>
+                puts_kvs!(
+                    delimiter,
+                    format,
+                    "time" => event.time.seconds,
+                    "kind" => kind_name,
+                    "code" => event.code,
                     "value" => event.value),
         }
     }
 }
 
 
-fn name(enabled: bool, num: u16, table: &HashMap<u16, String>) -> String {
+fn name(enabled: bool, padding: bool, num: u16, table: &HashMap<u16, String>) -> String {
     if enabled {
-        table.get(&num).unwrap_or(&format!("{}", num)).to_owned()
+        let result = table.get(&num).unwrap_or(&format!("{}", num)).to_owned();
+        if padding {
+            pad(result)
+        } else {
+            result
+        }
     } else {
         format!("{}", num)
     }
+}
+
+
+fn pad(s: String) -> String {
+    format!("{:width$}", s, width = MAX_NAME_SIZE)
 }
