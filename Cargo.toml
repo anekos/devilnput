@@ -1,10 +1,10 @@
 [package]
 name = "devilnput"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["anekos <anekos@snca.net>"]
 
 [dependencies]
 argparse = "*"
 uinput-sys = "0.1.5"
-ioctl = "*"
-wraited-struct = "0.1.0"
+wraited-struct = "0.2.0"
+evdev-rs = "0.1.0"

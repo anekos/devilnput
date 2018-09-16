@@ -1,16 +1,17 @@
 
 extern crate argparse;
-extern crate ioctl;
-extern crate wraited_struct;
+extern crate evdev_rs;
 extern crate uinput_sys;
-
-mod name_table;
+extern crate wraited_struct;
 
 use std::fs::File;
 use std::collections::HashMap;
-use std::os::unix::io::{AsRawFd, RawFd};
+
 use argparse::{ArgumentParser, Store, StoreConst, StoreTrue, Print};
+use evdev_rs::{Device, GrabMode};
 use uinput_sys::*;
+
+mod name_table;
 
 use name_table::*;
 
@@ -80,7 +81,7 @@ fn main() {
 
     {
         let mut ap = ArgumentParser::new();
-        ap.set_description("panty and stocking");
+        ap.set_description("DEViLnput");
         ap.refer(&mut format)
             .add_option(&["-e", "--eval"], StoreConst(Eval), "For eval (default)")
             .add_option(&["-l", "--list"], StoreConst(List), "List");
@@ -98,13 +99,11 @@ fn main() {
     let num2abs = generate_abs_name_table();
 
     let mut file = File::open(file).expect("Could not open");
-    let fd: RawFd = file.as_raw_fd();
 
-    unsafe {
-        ioctl::eviocgrab(fd, &1);
-    }
+    let mut device = Device::new_from_fd(&file).unwrap();
+    device.grab(GrabMode::Grab).unwrap();
 
-    while let Ok(event) = wraited_struct::read::<RawInputEvent, File>(&mut file) {
+    while let Ok(event) = unsafe { wraited_struct::read::<RawInputEvent, File>(&mut file) } {
         let kind_name = name(named, false, event.kind, &num2ev);
         match event.kind as i32 {
             EV_SYN | EV_MSC => (),
