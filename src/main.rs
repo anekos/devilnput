@@ -43,7 +43,7 @@ macro_rules! puts_kvs_in_eval {
         {
             print!("{}={}", $name, $value);
             $( print!("{}{}={}", $delimiter, $tname, $tvalue); )*
-            println!("");
+            println!();
         }
     }
 }
@@ -54,7 +54,7 @@ macro_rules! puts_kvs_in_list {
         {
             print!("{}", $value);
             $( print!("{}{}", $delimiter, $tvalue); )*
-            println!("");
+            println!();
         }
     }
 }
@@ -105,7 +105,7 @@ fn main() {
 
     while let Ok(event) = unsafe { wraited_struct::read::<RawInputEvent, File>(&mut file) } {
         let kind_name = name(named, false, event.kind, &num2ev);
-        match event.kind as i32 {
+        match i32::from(event.kind) {
             EV_SYN | EV_MSC => (),
             EV_KEY => {
                 let code_name = name(named, true, event.code, &num2code);
@@ -154,7 +154,7 @@ fn name(enabled: bool, padding: bool, num: u16, table: &HashMap<u16, String>) ->
     if enabled {
         let result = table.get(&num).unwrap_or(&format!("{}", num)).to_owned();
         if padding {
-            pad(result)
+            pad(&result)
         } else {
             result
         }
@@ -164,6 +164,6 @@ fn name(enabled: bool, padding: bool, num: u16, table: &HashMap<u16, String>) ->
 }
 
 
-fn pad(s: String) -> String {
+fn pad(s: &str) -> String {
     format!("{:width$}", s, width = MAX_NAME_SIZE)
 }
