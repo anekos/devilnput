@@ -78,6 +78,7 @@ fn main() {
     let mut format = Format::Eval;
     let mut named = false;
     let mut delimiter = " ".to_owned();
+    let mut grab = false;
 
     {
         let mut ap = ArgumentParser::new();
@@ -85,6 +86,8 @@ fn main() {
         ap.refer(&mut format)
             .add_option(&["-e", "--eval"], StoreConst(Eval), "For eval (default)")
             .add_option(&["-l", "--list"], StoreConst(List), "List");
+        ap.refer(&mut grab)
+            .add_option(&["-g", "--grab"], StoreTrue, "Grab device");
         ap.refer(&mut named)
             .add_option(&["-n", "--named"], StoreTrue, "Show named values");
         ap.refer(&mut delimiter).add_option(&["-d", "--delimiter"], Store, "Item delimiter");
@@ -101,7 +104,9 @@ fn main() {
     let mut file = File::open(file).expect("Could not open");
 
     let mut device = Device::new_from_fd(&file).unwrap();
-    device.grab(GrabMode::Grab).unwrap();
+    if grab {
+        device.grab(GrabMode::Grab).unwrap();
+    }
 
     while let Ok(event) = unsafe { wraited_struct::read::<RawInputEvent, File>(&mut file) } {
         let kind_name = name(named, false, event.kind, &num2ev);
