@@ -92,7 +92,7 @@ fn main() {
             .add_option(&["-n", "--named"], StoreTrue, "Show named values");
         ap.refer(&mut delimiter).add_option(&["-d", "--delimiter"], Store, "Item delimiter");
         ap.refer(&mut file)
-            .add_argument("Device file", Store, "/dev/input/*")
+            .add_argument("DEVICE", Store, "/dev/input/*")
             .required();
         ap.add_option(&["-v", "--version"], Print(env!("CARGO_PKG_VERSION").to_string()), "Show version");
         ap.parse_args_or_exit();
