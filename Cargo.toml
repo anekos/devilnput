@@ -2,6 +2,7 @@
 name = "devilnput"
 version = "0.2.0"
 authors = ["anekos <anekos@snca.net>"]
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 argparse = "*"
