@@ -7,7 +7,7 @@ extern crate wraited_struct;
 use std::fs::File;
 use std::collections::HashMap;
 
-use argparse::{ArgumentParser, Store, StoreConst, StoreTrue, Print};
+use argparse::{ArgumentParser, Store, StoreConst, StoreOption, StoreTrue, Print};
 use evdev_rs::{Device, GrabMode};
 use uinput_sys::*;
 
@@ -79,6 +79,9 @@ fn main() {
     let mut named = false;
     let mut delimiter = " ".to_owned();
     let mut grab = false;
+    let mut wait_for_kind: Option<i32> = None;
+    let mut wait_for_code: Option<u16> = None;
+    let mut wait_for_value: Option<i32> = None;
 
     {
         let mut ap = ArgumentParser::new();
@@ -95,6 +98,9 @@ fn main() {
             .add_argument("DEVICE", Store, "/dev/input/*")
             .required();
         ap.add_option(&["-v", "--version"], Print(env!("CARGO_PKG_VERSION").to_string()), "Show version");
+        ap.refer(&mut wait_for_kind).add_option(&["--wait-kind"], StoreOption, "Wait for the kind");
+        ap.refer(&mut wait_for_code).add_option(&["--wait-code"], StoreOption, "Wait for the code");
+        ap.refer(&mut wait_for_value).add_option(&["--wait-value"], StoreOption, "Wait for the value");
         ap.parse_args_or_exit();
     }
 
@@ -111,8 +117,12 @@ fn main() {
     }
 
     while let Ok(event) = unsafe { wraited_struct::read::<RawInputEvent, File>(&mut file) } {
+        let mut do_terminate = false;
+
         let kind_name = name(named, false, event.kind, &num2ev);
-        match i32::from(event.kind) {
+        let kind = i32::from(event.kind);
+
+        match kind {
             EV_SYN | EV_MSC => (),
             EV_KEY => {
                 let code_name = name(named, true, event.code, &num2code);
@@ -152,6 +162,34 @@ fn main() {
                     "kind" => kind_name,
                     "code" => event.code,
                     "value" => event.value),
+        }
+
+        if let Some(wk) = wait_for_kind {
+            if wk == kind {
+                do_terminate = true;
+            } else {
+                continue;
+            }
+        }
+
+        if let Some(wc) = wait_for_code {
+            if wc == event.code {
+                do_terminate = true;
+            } else {
+                continue;
+            }
+        }
+
+        if let Some(wv) = wait_for_value {
+            if wv == event.value {
+                do_terminate = true;
+            } else {
+                continue;
+            }
+        }
+
+        if do_terminate {
+            break;
         }
     }
 }
