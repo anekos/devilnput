@@ -6,6 +6,7 @@ extern crate wraited_struct;
 
 use std::fs::File;
 use std::collections::HashMap;
+use std::process::exit;
 
 use argparse::{ArgumentParser, Store, StoreConst, StoreOption, StoreTrue, Print};
 use evdev_rs::{Device, GrabMode};
@@ -192,6 +193,8 @@ fn main() {
             break;
         }
     }
+
+    exit(1);
 }
 
 
